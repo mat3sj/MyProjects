@@ -20,7 +20,7 @@ move_counter = 1
 sides = ['b','w']
 
 
-class piece(object):
+class Piece(object):
     def __init__(self, x: int, y: int, side: str):
         self.x = x
         self.y = y
@@ -31,7 +31,7 @@ class piece(object):
         result = poss_moves(self.x,self.y,self.side,self.one_step,self.name)
         return result
 
-class pawn(piece):
+class Pawn(Piece):
     def __str__(self):
         return ' ' + str(letters[self.x])+str(8-self.y) + ' '
     
@@ -64,7 +64,7 @@ class pawn(piece):
 
         return result
 
-class rook(piece):
+class Rook(Piece):
     name = 'rook'
     one_step = 0
 
@@ -81,7 +81,7 @@ class rook(piece):
         picture = pygame.transform.scale(picture, (58, 64))
         win.blit(picture,(square_size * self.x + 11 , square_size * self.y + 8))
 
-class knight(piece):
+class Knight(Piece):
     name = 'knight'
     one_step = 1
 
@@ -98,7 +98,7 @@ class knight(piece):
         picture = pygame.transform.scale(picture, (58, 64))
         win.blit(picture,(square_size * self.x + 11 , square_size * self.y + 8))
 
-class bishop(piece):
+class Bishop(Piece):
     name = 'bishop'
     one_step = 0
     def __str__(self):
@@ -114,7 +114,7 @@ class bishop(piece):
         picture = pygame.transform.scale(picture, (64, 64))
         win.blit(picture,(square_size * self.x + 8 , square_size * self.y + 8))
 
-class queen(piece):
+class Queen(Piece):
     name = 'queen'
     one_step = 0
     
@@ -131,7 +131,7 @@ class queen(piece):
         picture = pygame.transform.scale(picture, (70, 64))
         win.blit(picture,(square_size * self.x + 5 , square_size * self.y + 8))
 
-class king(piece):
+class King(Piece):
     name = 'queen'
     one_step = 1
 
@@ -146,7 +146,7 @@ class king(piece):
         picture = pygame.transform.scale(picture, (64, 64))
         win.blit(picture,(square_size * self.x + 8 , square_size * self.y + 8))
 
-class my_cursor(object):
+class My_cursor(object):
     def __init__(self,x,y,kind):
         self.x = x
         self.y = y
@@ -188,17 +188,23 @@ def create_board(board_size: int):
 # Fill the board with pieces according to normal chess rules
 def fill_with_pieces(board: list):
     side = 'b'
+    global white_pieces, black_pieces
+    piece_list = black_pieces
     for i in [0,1,6,7]:
-        if i == 6: side = 'w'
+        if i == 6: 
+            side = 'w'
+            piece_list = white_pieces
         if i in [1,6]:
             for j in range (8):
-                board [i][j] = pawn(j,i,side)
+                board [i][j] = Pawn(j,i,side)
         if i in [0,7]:
-            board[i][0], board[i][7] = rook(0,i,side), rook(7,i,side)
-            board[i][1], board[i][6] = knight(1,i,side), knight(6,i,side)
-            board[i][2], board[i][5] = bishop(2,i,side), bishop(5,i,side)
-            board[i][3] = queen(3,i,side)
-            board[i][4] = king(4,i,side)
+            board[i][0], board[i][7] = Rook(0,i,side), Rook(7,i,side)
+            board[i][1], board[i][6] = Knight(1,i,side), Knight(6,i,side)
+            board[i][2], board[i][5] = Bishop(2,i,side), Bishop(5,i,side)
+            board[i][3] = Queen(3,i,side)
+            board[i][4] = King(4,i,side)
+        for cell in board[i]:
+            piece_list.append(cell)
 
 # Checking if the move is possible and what type of move it is (not very good name for it though)
 def line_move(x: int, y: int, side: str):
@@ -218,7 +224,7 @@ def is_on_board(x: int, y: int) -> bool:
     if x < 0 or y < 0: return False
     return True 
 
-def poss_moves(initial_x: int, initial_y: int, side: str, king: int, piece: str):
+def poss_moves(initial_x: int, initial_y: int, side: str, one_step: int, piece: str):
     result = []
     if piece == 'bishop':
         possible_steps = [[1,1],[1,-1],[-1,-1],[-1,1]]
@@ -241,10 +247,25 @@ def poss_moves(initial_x: int, initial_y: int, side: str, king: int, piece: str)
         for option in remove:
             possible_steps.pop(possible_steps.index(option))
         step += 1
-        if king:
+        if one_step:
             break
         
     return result
+
+def is_check():
+    global white_king, black_king, move_counter, white_pieces, black_pieces
+    king = white_king if sides[move_counter % 2] == 'w' else black_king
+    piece_list = white_pieces if sides[(move_counter+1) % 2] == 'w' else black_pieces
+    print(king)
+    print(piece_list[0].side)
+
+    for piece in piece_list:
+        all_moves = piece.possible_moves()
+        for move in all_moves:
+            if move[2] == 'take':
+                if move[0] == king.x and move[1] == king.y:
+                    return True
+    return False
 
 # print board in terminal (not in use anymore)
 def print_board(board):
@@ -272,6 +293,8 @@ def piece_move():
         board[cursor.y][cursor.x].y = pos_cursor.y
         board[cursor.y][cursor.x] = ''
         move_counter += 1
+        if is_check():
+            print ('this is a check')
 
 def redraw_window(board_size, board, win):
     win.fill((0,0,0))
@@ -302,19 +325,22 @@ def redraw_window(board_size, board, win):
     pygame.display.update()
     
 create_board(8)
+white_pieces, black_pieces = [],[]
 fill_with_pieces(board)
-cursor = my_cursor(5,3,'main')
+#fill_with_pieces(board)
+cursor = My_cursor(5,3,'main')
 
 # board[2][2] = rook(2,2,'w')
 # board[3][5] = bishop(5,3,'w')
 # board[1][3] = ''
 
 redraw_window(board_size, board, win)
-
+white_king = board[7][4]
+black_king = board[0][4]
 while run:
-    pygame.time.delay(100)
+   
     keys = pygame.key.get_pressed()
-
+    pygame.time.delay(100)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
@@ -361,8 +387,9 @@ while run:
                     cursor.selected = True
                     poss_mov = board[cursor.y][cursor.x].possible_moves()
                     poss_mov.insert(0,[cursor.x,cursor.y,'possition'])
-                    pos_cursor = my_cursor(cursor.x, cursor.y,'possition')
+                    pos_cursor = My_cursor(cursor.x, cursor.y,'possition')
     if pressed_key:
         redraw_window(board_size, board, win)
         pressed_key = False
+
 pygame.quit()
