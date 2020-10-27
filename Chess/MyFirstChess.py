@@ -13,7 +13,6 @@ cwd = os.path.dirname(__file__)
 image_dir = os.path.join(cwd,'pieces')
 
 pressed_key = False
-pos_counter = 0  # Tracking of position cursor
 run = True
 score = [0,0]
 move_counter = 1
@@ -35,6 +34,7 @@ class Pawn(Piece):
     def __str__(self):
         return ' ' + str(letters[self.x])+str(8-self.y) + ' '
     
+    name = 'pawn'
     worth = 1
     def draw(self, win: object):
         if self.side == 'w':
@@ -59,11 +59,11 @@ class Pawn(Piece):
                 result.append([self.x, self.y + 2*side, 'free'])
         for move in take_moves:
             if is_on_board(move[0],move[1]):
-                if board[move[1]][move[0]]:
+                if board[move[1]][move[0]] and board[move[1]][move[0]].side != self.side:
                     result.append(move)
 
         return result
-
+    
 class Rook(Piece):
     name = 'rook'
     one_step = 0
@@ -256,8 +256,8 @@ def is_check():
     global white_king, black_king, move_counter, white_pieces, black_pieces
     king = white_king if sides[move_counter % 2] == 'w' else black_king
     piece_list = white_pieces if sides[(move_counter+1) % 2] == 'w' else black_pieces
-    print(king)
-    print(piece_list[0].side)
+    # print(king)
+    # print(piece_list[0].side)
 
     for piece in piece_list:
         all_moves = piece.possible_moves()
@@ -282,18 +282,26 @@ def print_board(board):
 def piece_move():
     global move_counter
     if cursor.x != pos_cursor.x or cursor.y != pos_cursor.y:
+        piece = board[cursor.y][cursor.x]
         if board[pos_cursor.y][pos_cursor.x]:
-            score[move_counter % 2] += board[pos_cursor.y][pos_cursor.x].worth
-            deleted_obj = board[pos_cursor.y][pos_cursor.x]
+            taken_piece = board[pos_cursor.y][pos_cursor.x]
+            score[move_counter % 2] += taken_piece.worth
             board[pos_cursor.y][pos_cursor.x] = ''
-            del deleted_obj
-        board[cursor.y][cursor.x].moved = True
-        board[pos_cursor.y][pos_cursor.x] = board[cursor.y][cursor.x]
-        board[cursor.y][cursor.x].x = pos_cursor.x
-        board[cursor.y][cursor.x].y = pos_cursor.y
+            del taken_piece
+        piece.moved = True
+        board[pos_cursor.y][pos_cursor.x] = piece
+        piece.x = pos_cursor.x
+        piece.y = pos_cursor.y
         board[cursor.y][cursor.x] = ''
         move_counter += 1
-        if is_check():
+
+        if piece.name == 'pawn':    # Possible promotion
+            if piece.side == 'w' and piece.y == 0 or piece.side == 'b' and piece.y == 7:
+                x, y, side = piece.x, piece.y, piece.side
+                del piece
+                board[y][x] = Queen(x,y,side)
+
+        if is_check():              # Check
             print ('this is a check')
 
 def redraw_window(board_size, board, win):
@@ -337,52 +345,70 @@ cursor = My_cursor(5,3,'main')
 redraw_window(board_size, board, win)
 white_king = board[7][4]
 black_king = board[0][4]
+key_loop = 0
+print(type(board[1][1]))
 while run:
    
     keys = pygame.key.get_pressed()
-    pygame.time.delay(100)
+    pygame.time.delay(50)
+
+    if key_loop > 0:
+        key_loop += 1
+    if key_loop > 3:
+        key_loop = 0
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
 
         # Cursor movement
     if not cursor.selected:
-        if keys[pygame.K_RIGHT]:
-            pressed_key = True
+        if keys[pygame.K_RIGHT] and not key_loop:
+            pressed_key, key_loop = True, 1
             if cursor.x < board_size - 1:
                 cursor.x += 1
-        if keys[pygame.K_LEFT]:
-            pressed_key = True
+        if keys[pygame.K_LEFT] and not key_loop:
+            pressed_key, key_loop = True, 1
             if cursor.x > 0:
                 cursor.x -= 1
-        if keys[pygame.K_UP]:
-            pressed_key = True
+        if keys[pygame.K_UP] and not key_loop:
+            pressed_key, key_loop = True, 1
             if cursor.y > 0:
                 cursor.y -= 1
-        if keys[pygame.K_DOWN]:
-            pressed_key = True
+        if keys[pygame.K_DOWN] and not key_loop:
+            pressed_key, key_loop = True, 1
             if cursor.y < board_size - 1:
                 cursor.y += 1
     else:   # movement when selected
-        if keys[pygame.K_RIGHT]:
-            pressed_key = True
-            pos_counter += 1
-        if keys[pygame.K_LEFT]:
-            pressed_key = True
-            pos_counter -= 1
-        if pressed_key:
-            pos_cursor.x = poss_mov[pos_counter % len(poss_mov)][0]
-            pos_cursor.y = poss_mov[pos_counter % len(poss_mov)][1]
+        if keys[pygame.K_RIGHT] and not key_loop:
+            pressed_key, key_loop = True, 1
+            if pos_cursor.x < board_size - 1:
+                pos_cursor.x += 1
+        if keys[pygame.K_LEFT] and not key_loop:
+            pressed_key, key_loop = True, 1
+            if pos_cursor.x > 0:
+                pos_cursor.x -= 1
+        if keys[pygame.K_UP] and not key_loop:
+            pressed_key, key_loop = True, 1
+            if pos_cursor.y > 0:
+                pos_cursor.y -= 1
+        if keys[pygame.K_DOWN] and not key_loop:
+            pressed_key, key_loop = True, 1
+            if pos_cursor.y < board_size - 1:
+                pos_cursor.y += 1
 
     if board[cursor.y][cursor.x]:
         if board[cursor.y][cursor.x].side == sides[move_counter % 2]:
-            if keys[pygame.K_KP_ENTER] or keys[pygame.K_SPACE] or keys[pygame.K_RETURN]:
-                pressed_key = True
+            if keys[pygame.K_KP_ENTER] and not key_loop or keys[pygame.K_SPACE] and not key_loop or keys[pygame.K_RETURN] and not key_loop:
+                pressed_key, key_loop = True, 1
                 if cursor.selected:
-                    piece_move()
-                    cursor.selected = False
-                    pos_counter = 0
-                    del pos_cursor
+                    for move in poss_mov:
+                        if pos_cursor.x == move[0] and pos_cursor.y == move[1]:
+                            piece_move()
+                            cursor.selected = False
+                            pos_counter = 0
+                            del pos_cursor
+                            break
                 else: 
                     cursor.selected = True
                     poss_mov = board[cursor.y][cursor.x].possible_moves()
